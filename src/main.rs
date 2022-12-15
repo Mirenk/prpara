@@ -8,7 +8,7 @@ fn main() {
         .author(env!("CARGO_PKG_AUTHORS"))
         .version(env!("CARGO_PKG_VERSION"))
         .usage("cli --pid [pid]")
-        .action(print_arg)
+        .action(run)
         .flag(
             Flag::new("pid", FlagType::Int)
             .description("pid")
@@ -18,14 +18,18 @@ fn main() {
     app.run(args);
 }
 
-fn usage(c: &Context) {
+fn usage() {
     println!("Usage: cli --pid [pid]");
 }
 
-fn print_arg(c: &Context) {
+fn run(c: &Context) {
     if let Ok(pid) = c.int_flag("pid"){
-        println!("{}", pid);
+        if pid > 0 {
+            println!("{}", pid);
+        } else {
+            eprintln!("error: pid must positive number.");
+        }
     } else {
-        usage(c);
+        usage();
     }
 }
