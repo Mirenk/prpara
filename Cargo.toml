@@ -8,3 +8,4 @@ edition = "2021"
 [dependencies]
 libc = "0.2.138"
 nix = "0.26.1"
+seahorse = "2.1.0"

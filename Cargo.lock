@@ -61,7 +61,14 @@ version = "0.1.0"
 dependencies = [
  "libc",
  "nix",
+ "seahorse",
 ]
+
+[[package]]
+name = "seahorse"
+version = "2.1.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "b3367111e93171f2f51f16fb46201bf6687f9da95eb1d409b6067cbc77af9c9c"
 
 [[package]]
 name = "static_assertions"
