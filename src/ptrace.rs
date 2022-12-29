@@ -1,11 +1,11 @@
 use nix::sys::{ptrace::{self, Options}, wait::{WaitStatus, waitpid}, signal::Signal};
 
-struct Proc {
+pub struct Proc {
     pid: nix::unistd::Pid
 }
 
 impl Proc {
-    fn new(pid: i32) -> Result<Proc, String>{
+    pub fn new(pid: i32) -> Result<Proc, String>{
         let obj = Proc { pid: nix::unistd::Pid::from_raw(pid)};
         ptrace::attach(obj.pid);
         match waitpid(obj.pid, None) {
@@ -16,7 +16,6 @@ impl Proc {
             _ => Err(String::from("Attach failed."))
         }
     }
-
 }
 
 impl Drop for Proc {
