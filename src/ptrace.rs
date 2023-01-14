@@ -24,8 +24,11 @@ impl Proc {
         let rip = orig_regs.rip as *mut c_void;
         let mut regs = orig_regs;
 
-        let orig_code = ptrace::read(self.pid, rip);
-        regs.rax = 0;
+        // debug: print rip
+        println!("rip: 0x{}", format!("{:016x}", orig_regs.rip));
+
+//        let orig_code = ptrace::read(self.pid, rip).unwrap();
+//        regs.rax = 0;
     }
 }
 
