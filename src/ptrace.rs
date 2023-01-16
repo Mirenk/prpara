@@ -19,6 +19,8 @@ impl Proc {
         }
     }
 
+
+
     pub fn inject(&self) {
         let orig_regs = ptrace::getregs(self.pid).unwrap();
         let rip = orig_regs.rip as *mut c_void;
@@ -41,6 +43,6 @@ impl Proc {
 
 impl Drop for Proc {
     fn drop(&mut self) {
-        ptrace::detach(self.pid, None).expect("ptrace::detach failed.");
+        let _ = ptrace::detach(self.pid, None);
     }
 }
