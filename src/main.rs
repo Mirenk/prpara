@@ -1,6 +1,6 @@
 use seahorse::{App, Context, Flag, FlagType};
 use std::env;
-use ptrace_rust::ptrace::Proc;
+use ptrace_rust::ptrace::{Proc, inject};
 
 fn main() {
     let args: Vec<String> = env::args().collect();
@@ -27,7 +27,7 @@ fn run(c: &Context) {
     if let Ok(pid) = c.int_flag("pid"){
         if pid > 0 {
             let proc = Proc::new(pid.try_into().unwrap()).unwrap();
-            proc.inject();
+            inject(proc);
         } else {
             eprintln!("error: pid must positive number.");
         }
