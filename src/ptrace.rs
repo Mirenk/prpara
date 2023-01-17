@@ -3,16 +3,21 @@ use std::os::raw::c_void;
 use nix::sys::{ptrace::{self, Options}, wait::{WaitStatus, waitpid}, signal::Signal};
 
 pub struct Proc {
-    pid: nix::unistd::Pid
+    pid: nix::unistd::Pid,
+    regs: libc::user_regs_struct
 }
 
 impl Proc {
     pub fn new(pid: i32) -> Result<Proc, String>{
-        let obj = Proc { pid: nix::unistd::Pid::from_raw(pid)};
-        ptrace::attach(obj.pid).expect("ptrace::attach failed.");
-        match waitpid(obj.pid, None) {
+        let pid = nix::unistd::Pid::from_raw(pid);
+        ptrace::attach(pid).expect("ptrace::attach failed.");
+        match waitpid(pid, None) {
             Ok(WaitStatus::Stopped(_, Signal::SIGSTOP)) => {
-                ptrace::setoptions(obj.pid, Options::PTRACE_O_TRACESYSGOOD).expect("ptrace::setoptions failed.");
+                ptrace::setoptions(pid, Options::PTRACE_O_TRACESYSGOOD).expect("ptrace::setoptions failed.");
+                let obj = Proc {
+                    pid: pid,
+                    regs: ptrace::getregs(pid).unwrap()
+                };
                 Ok(obj)
             }
             _ => Err(String::from("waitpid failed."))
@@ -26,7 +31,7 @@ impl Drop for Proc {
     }
 }
 
-pub fn inject(proc: Proc) {
+pub fn run_syscall(proc: Proc) {
     let pid = proc.pid;
 
     let orig_regs = ptrace::getregs(pid).unwrap();
