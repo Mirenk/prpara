@@ -1,10 +1,11 @@
 use std::os::raw::c_void;
 
+use libc::{SYS_mmap, user_regs_struct};
 use nix::sys::{ptrace::{self, Options}, wait::{WaitStatus, waitpid}, signal::Signal};
 
 pub struct Proc {
     pid: nix::unistd::Pid,
-    regs: libc::user_regs_struct
+    regs: user_regs_struct
 }
 
 impl Proc {
@@ -23,6 +24,20 @@ impl Proc {
             _ => Err(String::from("waitpid failed."))
         }
     }
+
+    pub fn get_regs(&self) -> user_regs_struct {
+        self.regs
+    }
+
+    pub fn set_regs(&mut self) -> Result<(), String> {
+        match ptrace::getregs(self.pid) {
+            Ok(regs) => {
+                self.regs = regs;
+                Ok(())
+            }
+            Err(e) => Err(String::from("set_regs failed."))
+        }
+    }
 }
 
 impl Drop for Proc {
@@ -30,6 +45,19 @@ impl Drop for Proc {
         let _ = ptrace::detach(self.pid, None);
     }
 }
+
+/*
+pub fn set_mmap_regs(
+    proc: Proc,
+    size: u64
+) -> () {
+    let mut regs = proc.regs;
+
+    regs.rax = SYS_mmap as u64;
+    regs.rdx = 0;
+    regs.rsi = size;
+}
+*/
 
 pub fn run_syscall(proc: Proc) {
     let pid = proc.pid;
