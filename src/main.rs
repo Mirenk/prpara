@@ -27,7 +27,8 @@ fn usage() {
 fn run(c: &Context) {
     if let Ok(pid) = c.int_flag("pid"){
         if pid > 0 {
-            let proc = Proc::new(pid.try_into().unwrap()).unwrap();
+            let pid = nix::unistd::Pid::from_raw(pid.try_into().unwrap());
+            let proc = Proc::new(pid).unwrap();
             run_syscall(proc);
         } else {
             eprintln!("error: pid must positive number.");

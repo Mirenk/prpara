@@ -1,23 +1,24 @@
-use std::os::raw::c_void;
+use std::{os::{raw::c_void, unix::raw::off_t}, ffi::c_long, num::NonZeroUsize};
 
-use libc::{SYS_mmap, user_regs_struct};
-use nix::sys::{ptrace::{self, Options}, wait::{WaitStatus, waitpid}, signal::Signal};
+use libc::{SYS_mmap, user_regs_struct, PROT_EXEC, PROT_READ, PROT_WRITE, MAP_PRIVATE, MAP_ANONYMOUS};
+use nix::sys::{ptrace::{self, Options}, wait::{WaitStatus, waitpid}, signal::Signal, mman::ProtFlags};
 
 pub struct Proc {
     pid: nix::unistd::Pid,
-    regs: user_regs_struct
+    regs: user_regs_struct,
+    syscall_regs: Option<user_regs_struct>
 }
 
 impl Proc {
-    pub fn new(pid: i32) -> Result<Proc, String>{
-        let pid = nix::unistd::Pid::from_raw(pid);
+    pub fn new(pid: nix::unistd::Pid) -> Result<Proc, String>{
         ptrace::attach(pid).expect("ptrace::attach failed.");
         match waitpid(pid, None) {
             Ok(WaitStatus::Stopped(_, Signal::SIGSTOP)) => {
                 ptrace::setoptions(pid, Options::PTRACE_O_TRACESYSGOOD).expect("ptrace::setoptions failed.");
                 let obj = Proc {
                     pid: pid,
-                    regs: ptrace::getregs(pid).unwrap()
+                    regs: ptrace::getregs(pid).unwrap(),
+                    syscall_regs: None
                 };
                 Ok(obj)
             }
@@ -25,17 +26,13 @@ impl Proc {
         }
     }
 
-    pub fn get_regs(&self) -> user_regs_struct {
-        self.regs
-    }
-
-    pub fn set_regs(&mut self) -> Result<(), String> {
+    pub fn get_regs(&mut self) -> Result<user_regs_struct, String> {
         match ptrace::getregs(self.pid) {
             Ok(regs) => {
                 self.regs = regs;
-                Ok(())
+                Ok(regs)
             }
-            Err(e) => Err(String::from("set_regs failed."))
+            Err(_) => Err(String::from("set_regs failed."))
         }
     }
 }
@@ -45,11 +42,15 @@ impl Drop for Proc {
         let _ = ptrace::detach(self.pid, None);
     }
 }
-
 /*
-pub fn set_mmap_regs(
+pub fn mmap (
     proc: Proc,
-    size: u64
+    addr: Option<NonZeroUsize>,
+    lengh: NonZeroUsize,
+    prot: ProtFlags,
+    flags: MapFlags,
+    fd: RawFd,
+    offset: off_t
 ) -> () {
     let mut regs = proc.regs;
 
@@ -58,13 +59,12 @@ pub fn set_mmap_regs(
     regs.rsi = size;
 }
 */
-
-pub fn run_syscall(proc: Proc) {
+pub fn run_syscall(mut proc: Proc) {
     let pid = proc.pid;
 
-    let orig_regs = ptrace::getregs(pid).unwrap();
+    let orig_regs = proc.get_regs().unwrap();
     let rip = orig_regs.rip as *mut c_void;
-    let code = 0xcc as *mut c_void;
+    let code = 0xcc050f as *mut c_void;
     let mut regs = orig_regs;
 
     // debug: print rip
@@ -72,11 +72,35 @@ pub fn run_syscall(proc: Proc) {
 
     let orig_code = ptrace::read(pid, rip).unwrap();
     println!("orig_code: 0x{}", format!("{:016x}", orig_code));
-    //        regs.rax = 0;
+
+    // mmap syscall regs
+    regs.rax = SYS_mmap as u64;
+    regs.rdx = 0;
+    regs.rsi = 4096;
+    regs.rdx = (PROT_EXEC|PROT_READ|PROT_WRITE) as u64;
+    regs.rcx = (MAP_PRIVATE|MAP_ANONYMOUS) as u64;
+    regs.r10 = regs.rcx;
+    regs.r8 = u64::MAX;
+    regs.r9 = 0;
+
+    ptrace::setregs(pid, regs).expect("ptrace::setregs failed.");
+
     unsafe {
         ptrace::write(pid, rip, code).expect("ptrace::write failed.");
     }
 
     ptrace::cont(pid, None).expect("ptrace::cont failed.");
+
+    let _ = waitpid(pid, None);
+
+    ptrace::setregs(pid, orig_regs);
+
+    let orig_code = orig_code as *mut c_void;
+    unsafe {
+        ptrace::write(pid, rip, orig_code);
+    }
+
+    ptrace::cont(pid, None).expect("ptrace::cont failed.");
+
 }
 
