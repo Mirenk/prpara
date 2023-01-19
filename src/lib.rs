@@ -1,2 +1,1 @@
-pub mod ptrace;
-pub use ptrace::Proc;
+pub mod core;

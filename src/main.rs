@@ -1,7 +1,7 @@
 use nix::unistd::Pid;
 use seahorse::{App, Context, Flag, FlagType};
 use std::env;
-use prpara::ptrace::{Proc, run_syscall};
+use prpara::core::{Proc, run_syscall};
 
 fn main() {
     let args: Vec<String> = env::args().collect();
