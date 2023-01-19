@@ -1,7 +1,7 @@
 mod inject;
 mod syscall;
 
-use libc::user_regs_struct;
+use nix::libc::user_regs_struct;
 use nix::sys::{
     ptrace::{self, Options},
     signal::Signal,
