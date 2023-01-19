@@ -1,6 +1,8 @@
 mod inject;
 mod syscall;
 
+use crate::error::Error;
+use crate::Result;
 use nix::libc::user_regs_struct;
 use nix::sys::{
     ptrace::{self, Options},
@@ -15,7 +17,7 @@ pub struct Proc {
 }
 
 impl Proc {
-    pub fn new(pid: nix::unistd::Pid) -> Result<Proc, String> {
+    pub fn new(pid: nix::unistd::Pid) -> Result<Proc> {
         ptrace::attach(pid).expect("ptrace::attach failed.");
         match waitpid(pid, None) {
             Ok(WaitStatus::Stopped(_, Signal::SIGSTOP)) => {
@@ -28,17 +30,17 @@ impl Proc {
                 };
                 Ok(obj)
             }
-            _ => Err(String::from("waitpid failed.")),
+            _ => Err(Error::WaitPidError),
         }
     }
 
-    pub fn get_regs(&mut self) -> Result<user_regs_struct, String> {
+    pub fn get_regs(&mut self) -> Result<user_regs_struct> {
         match ptrace::getregs(self.pid) {
             Ok(regs) => {
                 self.regs = regs;
                 Ok(regs)
             }
-            Err(_) => Err(String::from("set_regs failed.")),
+            Err(_) => Err(Error::PtraceGetRegsError),
         }
     }
 }
