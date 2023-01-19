@@ -1,7 +1,7 @@
 use nix::unistd::Pid;
+use prpara::core::Proc;
 use seahorse::{App, Context, Flag, FlagType};
 use std::env;
-use prpara::core::{Proc, run_syscall};
 
 fn main() {
     let args: Vec<String> = env::args().collect();
@@ -13,9 +13,9 @@ fn main() {
         .action(run)
         .flag(
             Flag::new("pid", FlagType::Int)
-            .description("pid")
-            .alias("p"),
-            );
+                .description("pid")
+                .alias("p"),
+        );
 
     app.run(args);
 }
@@ -25,11 +25,11 @@ fn usage() {
 }
 
 fn run(c: &Context) {
-    if let Ok(pid) = c.int_flag("pid"){
+    if let Ok(pid) = c.int_flag("pid") {
         if pid > 0 {
-            let pid = nix::unistd::Pid::from_raw(pid.try_into().unwrap());
+            let pid = Pid::from_raw(pid.try_into().unwrap());
             let proc = Proc::new(pid).unwrap();
-            run_syscall(proc);
+        //            run_syscall(proc);
         } else {
             eprintln!("error: pid must positive number.");
         }
