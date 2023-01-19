@@ -28,7 +28,7 @@ fn run(c: &Context) {
     if let Ok(pid) = c.int_flag("pid") {
         if pid > 0 {
             let pid = Pid::from_raw(pid.try_into().unwrap());
-            let proc = Proc::new(pid).unwrap();
+            let _proc = Proc::new(pid).unwrap();
         //            run_syscall(proc);
         } else {
             eprintln!("error: pid must positive number.");

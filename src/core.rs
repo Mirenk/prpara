@@ -1,17 +1,8 @@
 mod inject;
 mod syscall;
 
-use std::{
-    ffi::c_long,
-    num::NonZeroUsize,
-    os::{raw::c_void, unix::raw::off_t},
-};
-
-use libc::{
-    user_regs_struct, SYS_mmap, MAP_ANONYMOUS, MAP_PRIVATE, PROT_EXEC, PROT_READ, PROT_WRITE,
-};
+use libc::user_regs_struct;
 use nix::sys::{
-    mman::ProtFlags,
     ptrace::{self, Options},
     signal::Signal,
     wait::{waitpid, WaitStatus},
