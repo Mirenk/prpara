@@ -3,7 +3,7 @@ use nix::libc::{SYS_mmap, MAP_ANONYMOUS, MAP_PRIVATE, PROT_EXEC, PROT_READ, PROT
 use super::Proc;
 use crate::Result;
 
-unsafe fn mmap(mut proc: Proc) -> Result<u64> {
+pub unsafe fn mmap(mut proc: Proc) -> Result<u64> {
     let mut regs = proc.get_regs()?.clone();
 
     regs.rax = SYS_mmap as u64;

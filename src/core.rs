@@ -53,6 +53,7 @@ impl Proc {
         let syscall_asm = 0xcc050f as *mut c_void; // syscall; int3;
 
         let orig_code = ptrace::read(pid, rip).map_err(|_| Error::PtraceReadError)? as *mut c_void;
+        dbg!(orig_code);
 
         ptrace::setregs(pid, regs).map_err(|_| Error::PtraceSetRegsError)?;
         ptrace::write(pid, rip, syscall_asm).map_err(|_| Error::PtraceWriteError)?;
@@ -74,4 +75,10 @@ impl Drop for Proc {
     fn drop(&mut self) {
         let _ = ptrace::detach(self.pid, None);
     }
+}
+
+pub unsafe fn write(proc: Proc) -> Result<()> {
+    let ret = syscall::mmap(proc)?;
+    dbg!(format!("{:016x}", ret));
+    Ok(())
 }
