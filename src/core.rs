@@ -1,6 +1,8 @@
 mod inject;
 mod syscall;
 
+use std::ffi::c_void;
+
 use crate::error::Error;
 use crate::Result;
 use nix::libc::user_regs_struct;
@@ -13,7 +15,7 @@ use nix::sys::{
 pub struct Proc {
     pid: nix::unistd::Pid,
     regs: user_regs_struct,
-    syscall_regs: Option<user_regs_struct>,
+    //    syscall_regs: Option<user_regs_struct>,
 }
 
 impl Proc {
@@ -30,7 +32,7 @@ impl Proc {
             let obj = Proc {
                 pid,
                 regs,
-                syscall_regs: None,
+                //               syscall_regs: None,
             };
 
             return Ok(obj);
@@ -40,12 +42,30 @@ impl Proc {
     }
 
     pub fn get_regs(&mut self) -> Result<user_regs_struct> {
-        match ptrace::getregs(self.pid) {
-            Ok(regs) => {
-                self.regs = regs;
-                Ok(regs)
-            }
-            Err(_) => Err(Error::PtraceGetRegsError),
+        let regs = ptrace::getregs(self.pid).map_err(|_| Error::PtraceGetRegsError)?;
+        self.regs = regs;
+        return Ok(regs);
+    }
+
+    unsafe fn run_syscall(&self, regs: user_regs_struct) -> Result<u64> {
+        let pid = self.pid;
+        let rip = self.regs.rip as *mut c_void;
+        let syscall_asm = 0xcc050f as *mut c_void; // syscall; int3;
+
+        let orig_code = ptrace::read(pid, rip).map_err(|_| Error::PtraceReadError)? as *mut c_void;
+
+        ptrace::setregs(pid, regs).map_err(|_| Error::PtraceSetRegsError)?;
+        ptrace::write(pid, rip, syscall_asm).map_err(|_| Error::PtraceWriteError)?;
+        ptrace::cont(pid, None).map_err(|_| Error::PtraceContinueError)?;
+
+        if let Ok(WaitStatus::Stopped(_, Signal::SIGTRAP)) = waitpid(pid, None) {
+            let regs = ptrace::getregs(pid).map_err(|_| Error::PtraceGetRegsError)?;
+            ptrace::setregs(pid, self.regs).map_err(|_| Error::PtraceSetRegsError)?;
+            ptrace::write(pid, rip, orig_code).map_err(|_| Error::PtraceWriteError)?;
+
+            return Ok(regs.rax);
+        } else {
+            return Err(Error::WaitPidError);
         }
     }
 }

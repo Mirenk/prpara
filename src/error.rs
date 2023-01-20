@@ -4,6 +4,8 @@ use thiserror::Error;
 pub enum Error {
     #[error("PtraceAttachError")]
     PtraceAttachError,
+    #[error("PtraceContinueError")]
+    PtraceContinueError,
     #[error("PtraceSetOptionError")]
     PtraceSetOptionError,
     #[error("PtraceGetRegsError")]
