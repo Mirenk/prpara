@@ -18,19 +18,24 @@ pub struct Proc {
 
 impl Proc {
     pub fn new(pid: nix::unistd::Pid) -> Result<Proc> {
-        ptrace::attach(pid).expect("ptrace::attach failed.");
-        match waitpid(pid, None) {
-            Ok(WaitStatus::Stopped(_, Signal::SIGSTOP)) => {
-                ptrace::setoptions(pid, Options::PTRACE_O_TRACESYSGOOD)
-                    .expect("ptrace::setoptions failed.");
-                let obj = Proc {
-                    pid: pid,
-                    regs: ptrace::getregs(pid).unwrap(),
-                    syscall_regs: None,
-                };
-                Ok(obj)
-            }
-            _ => Err(Error::WaitPidError),
+        ptrace::attach(pid).map_err(|_| Error::PtraceAttachError)?;
+
+        // wait attach pid
+        if let Ok(WaitStatus::Stopped(_, Signal::SIGSTOP)) = waitpid(pid, None) {
+            ptrace::setoptions(pid, Options::PTRACE_O_TRACESYSGOOD)
+                .map_err(|_| Error::PtraceSetOptionError)?;
+
+            let regs = ptrace::getregs(pid).map_err(|_| Error::PtraceGetRegsError)?;
+
+            let obj = Proc {
+                pid,
+                regs,
+                syscall_regs: None,
+            };
+
+            return Ok(obj);
+        } else {
+            return Err(Error::WaitPidError);
         }
     }
 
