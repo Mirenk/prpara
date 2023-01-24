@@ -1,5 +1,4 @@
-mod inject;
-mod syscall;
+mod parasite;
 
 use std::ffi::c_void;
 
@@ -78,7 +77,7 @@ impl Drop for Proc {
 }
 
 pub unsafe fn write(proc: Proc) -> Result<()> {
-    let ret = syscall::mmap(proc)?;
+    let ret = parasite::mmap(proc)?;
     dbg!(format!("{:016x}", ret));
     Ok(())
 }
