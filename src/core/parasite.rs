@@ -3,6 +3,8 @@ use nix::libc::{SYS_mmap, MAP_ANONYMOUS, MAP_PRIVATE, PROT_EXEC, PROT_READ, PROT
 use super::Proc;
 use crate::Result;
 
+pub type Address = u64;
+
 pub unsafe fn mmap(mut proc: Proc) -> Result<u64> {
     let mut regs = proc.get_regs()?.clone();
 
@@ -16,6 +18,10 @@ pub unsafe fn mmap(mut proc: Proc) -> Result<u64> {
     regs.r9 = 0;
 
     return proc.run_syscall(regs);
+}
+
+pub fn write_to_proc(proc: Proc, addr: Address, data: Vec<u8>) -> Result<usize> {
+    return Ok(0);
 }
 
 /*
