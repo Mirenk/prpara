@@ -6,6 +6,8 @@ pub enum Error {
     PidError,
     #[error("HashError")]
     HashError,
+    #[error("MapError")]
+    MapError,
     #[error("PtraceAttachError")]
     PtraceAttachError,
     #[error("PtraceContinueError")]

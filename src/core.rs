@@ -13,7 +13,8 @@ use nix::sys::{
     wait::{waitpid, WaitStatus},
 };
 
-use self::loader::{get_var_hash, VarHash};
+use self::loader::symbol::SymHash;
+use self::loader::{get_var_hash, set_proc_symhash, VarHash};
 
 pub type Address = u64;
 
@@ -22,6 +23,7 @@ pub type Pid = u64;
 pub struct Proc {
     pid: Pid,
     regs: user_regs_struct,
+    symhash: SymHash,
     var_hash: VarHash,
     //    syscall_regs: Option<user_regs_struct>,
 }
@@ -30,6 +32,13 @@ impl Proc {
     pub fn new(pid: Pid) -> Result<Proc> {
         let nix_pid = nix::unistd::Pid::from_raw(pid.try_into().map_err(|_| Error::PidError)?);
         ptrace::attach(nix_pid).map_err(|_| Error::PtraceAttachError)?;
+
+        let mut symhash = SymHash::new();
+        set_proc_symhash(pid, &mut symhash)?;
+
+        for (name, addr) in symhash.iter() {
+            println!("{}{}", name, addr)
+        }
 
         // wait attach pid
         if let Ok(WaitStatus::Stopped(_, Signal::SIGSTOP)) = waitpid(nix_pid, None) {
@@ -41,6 +50,7 @@ impl Proc {
             let obj = Proc {
                 pid,
                 regs,
+                symhash,
                 var_hash: get_var_hash(pid).map_err(|_| Error::HashError)?,
                 //               syscall_regs: None,
             };
