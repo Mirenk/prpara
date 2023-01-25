@@ -37,7 +37,7 @@ impl Proc {
         set_proc_symhash(pid, &mut symhash)?;
 
         for (name, addr) in symhash.iter() {
-            println!("{}{}", name, addr)
+            println!("{}:{}", name, format!("{:016x}", addr))
         }
 
         // wait attach pid

@@ -8,6 +8,8 @@ pub enum Error {
     HashError,
     #[error("MapError")]
     MapError,
+    #[error("ElfLoadError")]
+    ElfLoadError,
     #[error("PtraceAttachError")]
     PtraceAttachError,
     #[error("PtraceContinueError")]
