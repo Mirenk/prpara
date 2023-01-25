@@ -1,4 +1,3 @@
-use nix::unistd::Pid;
 use prpara::core::Proc;
 use seahorse::{App, Context, Flag, FlagType};
 use std::env;
@@ -27,7 +26,7 @@ fn usage() {
 fn run(c: &Context) {
     if let Ok(pid) = c.int_flag("pid") {
         if pid > 0 {
-            let pid = Pid::from_raw(pid.try_into().unwrap());
+            let pid = pid as u64;
             let proc = Proc::new(pid).unwrap();
             unsafe {
                 prpara::core::write(proc).unwrap();

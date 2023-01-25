@@ -1,6 +1,8 @@
+mod loader;
 mod parasite;
 
 use std::ffi::c_void;
+use std::u64;
 
 use crate::error::Error;
 use crate::Result;
@@ -11,26 +13,35 @@ use nix::sys::{
     wait::{waitpid, WaitStatus},
 };
 
+use self::loader::{get_var_hash, VarHash};
+
+pub type Address = u64;
+
+pub type Pid = u64;
+
 pub struct Proc {
-    pid: nix::unistd::Pid,
+    pid: Pid,
     regs: user_regs_struct,
+    var_hash: VarHash,
     //    syscall_regs: Option<user_regs_struct>,
 }
 
 impl Proc {
-    pub fn new(pid: nix::unistd::Pid) -> Result<Proc> {
-        ptrace::attach(pid).map_err(|_| Error::PtraceAttachError)?;
+    pub fn new(pid: Pid) -> Result<Proc> {
+        let nix_pid = nix::unistd::Pid::from_raw(pid.try_into().map_err(|_| Error::PidError)?);
+        ptrace::attach(nix_pid).map_err(|_| Error::PtraceAttachError)?;
 
         // wait attach pid
-        if let Ok(WaitStatus::Stopped(_, Signal::SIGSTOP)) = waitpid(pid, None) {
-            ptrace::setoptions(pid, Options::PTRACE_O_TRACESYSGOOD)
+        if let Ok(WaitStatus::Stopped(_, Signal::SIGSTOP)) = waitpid(nix_pid, None) {
+            ptrace::setoptions(nix_pid, Options::PTRACE_O_TRACESYSGOOD)
                 .map_err(|_| Error::PtraceSetOptionError)?;
 
-            let regs = ptrace::getregs(pid).map_err(|_| Error::PtraceGetRegsError)?;
+            let regs = ptrace::getregs(nix_pid).map_err(|_| Error::PtraceGetRegsError)?;
 
             let obj = Proc {
                 pid,
                 regs,
+                var_hash: get_var_hash(pid).map_err(|_| Error::HashError)?,
                 //               syscall_regs: None,
             };
 
@@ -41,13 +52,14 @@ impl Proc {
     }
 
     pub fn get_regs(&mut self) -> Result<user_regs_struct> {
-        let regs = ptrace::getregs(self.pid).map_err(|_| Error::PtraceGetRegsError)?;
+        let nix_pid = nix::unistd::Pid::from_raw(self.pid.try_into().map_err(|_| Error::PidError)?);
+        let regs = ptrace::getregs(nix_pid).map_err(|_| Error::PtraceGetRegsError)?;
         self.regs = regs;
         return Ok(regs);
     }
 
     unsafe fn run_syscall(&self, regs: user_regs_struct) -> Result<u64> {
-        let pid = self.pid;
+        let pid = nix::unistd::Pid::from_raw(self.pid.try_into().map_err(|_| Error::PidError)?);
         let rip = self.regs.rip as *mut c_void;
         let syscall_asm = 0xcc050f as *mut c_void; // syscall; int3;
 
@@ -72,7 +84,8 @@ impl Proc {
 
 impl Drop for Proc {
     fn drop(&mut self) {
-        let _ = ptrace::detach(self.pid, None);
+        let pid = nix::unistd::Pid::from_raw(self.pid.try_into().unwrap());
+        let _ = ptrace::detach(pid, None);
     }
 }
 

@@ -2,6 +2,10 @@ use thiserror::Error;
 
 #[derive(Error, Debug)]
 pub enum Error {
+    #[error("PidError")]
+    PidError,
+    #[error("HashError")]
+    HashError,
     #[error("PtraceAttachError")]
     PtraceAttachError,
     #[error("PtraceContinueError")]
