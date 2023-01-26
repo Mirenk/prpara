@@ -1,3 +1,4 @@
+use prpara::core::load;
 use prpara::core::Proc;
 use seahorse::{App, Context, Flag, FlagType};
 use std::env;
@@ -28,9 +29,7 @@ fn run(c: &Context) {
         if pid > 0 {
             let pid = pid as u64;
             let proc = Proc::new(pid).unwrap();
-            unsafe {
-                prpara::core::write(proc).unwrap();
-            }
+            load(proc);
         } else {
             eprintln!("error: pid must positive number.");
         }

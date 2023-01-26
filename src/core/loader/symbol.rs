@@ -1,5 +1,6 @@
 use std::collections::HashMap;
 use std::fs;
+use std::io::{BufReader, Cursor, Read, Seek, Write};
 use std::path::Path;
 
 use goblin::Object;
@@ -35,26 +36,24 @@ pub fn set_sym_hashmap(filename: &Path, offset: usize, symhash: &mut SymHash) ->
     return Ok(());
 }
 
-fn fix_addr(buffer: &mut Vec<u8>, reloc_addr: Address, sh_offset: u64, r_offset: u64) {}
+fn fix_addr(buffer: &mut Vec<u8>, reloc_addr: Address, r_offset: u64) {
+    println!(
+        "size: 0x{:016x}, r_offset: 0x{:016x}",
+        buffer.len(),
+        r_offset,
+    );
+    let mut cur = Cursor::new(buffer);
 
-pub fn get_reloc_object(filename: &Path, symhash: &mut SymHash) -> Result<Vec<u8>> {
+    cur.seek(std::io::SeekFrom::Start(r_offset)).unwrap();
+    cur.write(&reloc_addr.to_le_bytes()).unwrap();
+    cur.seek(std::io::SeekFrom::Start(r_offset)).unwrap();
+}
+
+pub fn get_reloc_object(filename: &Path, symhash: &SymHash) -> Result<Vec<u8>> {
     let buffer = fs::read(filename).map_err(|_| Error::MapError)?;
+    let mut outbuf = buffer.clone();
 
     if let Ok(Object::Elf(elf)) = Object::parse(&buffer) {
-        // search section offset
-        let sh_offsets: HashMap<&str, u64> = elf
-            .section_headers
-            .iter()
-            .map(|sect_header| (&elf.shdr_strtab[sect_header.sh_name], sect_header.sh_offset))
-            .collect();
-        let dyn_offset = sh_offsets.get(".dynamic").unwrap();
-        let plt_offset = sh_offsets.get(".plt").unwrap();
-
-        println!(
-            "dyn_offset:{:016x}, plt_offset:{:016x}",
-            dyn_offset, plt_offset
-        );
-
         // relocation .dynamic
         for reloc in elf.dynrelas.iter() {
             let name = elf
@@ -64,6 +63,7 @@ pub fn get_reloc_object(filename: &Path, symhash: &mut SymHash) -> Result<Vec<u8
                 .to_string();
             if let Some(address) = symhash.get(&name) {
                 println!("reloc: {}: 0x{:016x}", name, address);
+                fix_addr(&mut outbuf, *address, reloc.r_offset);
             } else {
                 println!("reloc: {}: notfound.", name);
                 continue;
@@ -79,6 +79,7 @@ pub fn get_reloc_object(filename: &Path, symhash: &mut SymHash) -> Result<Vec<u8
                 .to_string();
             if let Some(address) = symhash.get(&name) {
                 println!("reloc: {}: 0x{:016x}", name, address);
+                fix_addr(&mut outbuf, *address, reloc.r_offset);
             } else {
                 println!("reloc: {}: notfound.", name);
                 continue;
@@ -86,5 +87,5 @@ pub fn get_reloc_object(filename: &Path, symhash: &mut SymHash) -> Result<Vec<u8
         }
     }
 
-    return Ok(buffer);
+    return Ok(outbuf);
 }

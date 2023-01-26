@@ -2,6 +2,7 @@ mod loader;
 mod parasite;
 
 use std::ffi::c_void;
+use std::path::Path;
 use std::u64;
 
 use crate::error::Error;
@@ -14,7 +15,7 @@ use nix::sys::{
 };
 
 use self::loader::symbol::SymHash;
-use self::loader::{get_var_hash, set_proc_symhash, VarHash};
+use self::loader::{get_var_hash, load_shared_object, set_proc_symhash, VarHash};
 
 pub type Address = u64;
 
@@ -67,29 +68,6 @@ impl Proc {
         self.regs = regs;
         return Ok(regs);
     }
-
-    unsafe fn run_syscall(&self, regs: user_regs_struct) -> Result<u64> {
-        let pid = nix::unistd::Pid::from_raw(self.pid.try_into().map_err(|_| Error::PidError)?);
-        let rip = self.regs.rip as *mut c_void;
-        let syscall_asm = 0xcc050f as *mut c_void; // syscall; int3;
-
-        let orig_code = ptrace::read(pid, rip).map_err(|_| Error::PtraceReadError)? as *mut c_void;
-        dbg!(orig_code);
-
-        ptrace::setregs(pid, regs).map_err(|_| Error::PtraceSetRegsError)?;
-        ptrace::write(pid, rip, syscall_asm).map_err(|_| Error::PtraceWriteError)?;
-        ptrace::cont(pid, None).map_err(|_| Error::PtraceContinueError)?;
-
-        if let Ok(WaitStatus::Stopped(_, Signal::SIGTRAP)) = waitpid(pid, None) {
-            let regs = ptrace::getregs(pid).map_err(|_| Error::PtraceGetRegsError)?;
-            ptrace::setregs(pid, self.regs).map_err(|_| Error::PtraceSetRegsError)?;
-            ptrace::write(pid, rip, orig_code).map_err(|_| Error::PtraceWriteError)?;
-
-            return Ok(regs.rax);
-        } else {
-            return Err(Error::WaitPidError);
-        }
-    }
 }
 
 impl Drop for Proc {
@@ -99,8 +77,7 @@ impl Drop for Proc {
     }
 }
 
-pub unsafe fn write(proc: Proc) -> Result<()> {
-    let ret = parasite::mmap(proc)?;
-    dbg!(format!("{:016x}", ret));
-    Ok(())
+pub fn load(proc: Proc) {
+    let path = Path::new("/home/mirenk/sh365/prpara/target/debug/greet.so");
+    load_shared_object(proc, path);
 }
