@@ -58,15 +58,28 @@ pub fn write_to_proc(pid: nix::unistd::Pid, addr: Address, data: Vec<u8>) -> Res
     let align_size = word_size - 1;
 
     let align_addr = addr & !align_size;
-    let align_head_size = align_addr - addr;
+    let align_head_size = addr - align_addr;
     let len = data.len() as u64;
     let len = align_head_size + len;
     let count: usize = (len + align_size / word_size).try_into().unwrap();
 
     let align_head_size = align_head_size as usize;
-    let mut write_buf: Vec<u8> = Vec::with_capacity(align_head_size);
-    let align_tail_size = (len % 8) as usize;
-    let mut tail_buf: Vec<u8> = Vec::with_capacity(align_tail_size);
+    let mut write_buf: Vec<u8> = ptrace::read(pid, align_addr as AddressType)
+        .unwrap()
+        .to_le_bytes()
+        .to_vec()[0..align_head_size]
+        .to_vec();
+    let align_tail_size = (word_size - (len % 8)) as usize;
+    let mut tail_buf: Vec<u8> = ptrace::read(pid, (align_addr + (len / word_size)) as AddressType)
+        .unwrap()
+        .to_le_bytes()
+        .to_vec()[align_tail_size..]
+        .to_vec();
+    let debug = tail_buf
+        .iter()
+        .map(|n| format!("{:02x}", n))
+        .collect::<String>();
+    dbg!(debug);
     write_buf.extend_from_slice(&data);
     write_buf.append(&mut tail_buf);
 
@@ -74,6 +87,7 @@ pub fn write_to_proc(pid: nix::unistd::Pid, addr: Address, data: Vec<u8>) -> Res
         let addr = (align_addr + i as u64) as AddressType;
         let data = &write_buf[i..(i + word_size as usize)];
         let data = u64::from_le_bytes(data.to_vec().try_into().unwrap()) as *mut c_void;
+        dbg!(data);
 
         unsafe {
             ptrace::write(pid, addr, data);
@@ -81,6 +95,14 @@ pub fn write_to_proc(pid: nix::unistd::Pid, addr: Address, data: Vec<u8>) -> Res
     }
 
     return Ok(());
+}
+
+pub fn debug_rip(pid: nix::unistd::Pid) {
+    ptrace::cont(pid, None);
+    waitpid(pid, None);
+    let regs = ptrace::getregs(pid).unwrap();
+
+    println!("segfalt! rip: {:016x}", regs.rip);
 }
 
 /*

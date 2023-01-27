@@ -16,6 +16,7 @@ use nix::sys::{
 
 use self::loader::symbol::SymHash;
 use self::loader::{get_var_hash, load_shared_object, set_proc_symhash, VarHash};
+use self::parasite::write_to_proc;
 
 pub type Address = u64;
 
@@ -26,7 +27,6 @@ pub struct Proc {
     regs: user_regs_struct,
     symhash: SymHash,
     var_hash: VarHash,
-    //    syscall_regs: Option<user_regs_struct>,
 }
 
 impl Proc {
@@ -78,6 +78,29 @@ impl Drop for Proc {
 }
 
 pub fn load(proc: Proc) {
-    let path = Path::new("/home/mirenk/sh365/prpara/target/debug/greet.so");
-    load_shared_object(proc, path);
+    let path = Path::new("/home/mirenk/sh365/prpara/target/debug/greet2.so");
+    let _ = load_shared_object(proc, path);
+}
+
+pub fn jmp(proc: Proc, jmp_addr: Address) {
+    let pid = nix::unistd::Pid::from_raw(proc.pid.try_into().unwrap());
+    let sym_name = String::from("greet");
+    let addr = *proc.symhash.get(&sym_name).unwrap() as u64;
+
+    let mut jmp_buf: Vec<u8> = Vec::new();
+    jmp_buf.push(0xff);
+    jmp_buf.push(0x25);
+    jmp_buf.push(0x00);
+    jmp_buf.push(0x00);
+    jmp_buf.push(0x00);
+    jmp_buf.push(0x00);
+    jmp_buf.extend_from_slice(&(jmp_addr + 0x1119).to_le_bytes());
+
+    let debug = jmp_buf
+        .iter()
+        .map(|n| format!("{:02x}", n))
+        .collect::<String>();
+    dbg!(debug);
+
+    write_to_proc(pid, addr, jmp_buf);
 }

@@ -1,3 +1,4 @@
+use prpara::core::jmp;
 use prpara::core::load;
 use prpara::core::Proc;
 use seahorse::{App, Context, Flag, FlagType};
@@ -30,6 +31,7 @@ fn run(c: &Context) {
             let pid = pid as u64;
             let proc = Proc::new(pid).unwrap();
             load(proc);
+        //            jmp(proc);
         } else {
             eprintln!("error: pid must positive number.");
         }

@@ -5,7 +5,8 @@ use proc_maps::get_process_maps;
 use self::symbol::{get_reloc_object, set_sym_hashmap, SymHash};
 
 use super::{
-    parasite::{mmap, write_to_proc},
+    jmp,
+    parasite::{debug_rip, mmap, write_to_proc},
     Address, Pid, Proc,
 };
 
@@ -50,5 +51,8 @@ pub fn load_shared_object(proc: Proc, filename: &Path) {
     let symhash = &proc.symhash;
     let obj = get_reloc_object(filename, symhash).unwrap();
     let addr = unsafe { mmap(pid, obj.len()) }.unwrap();
+
     let _ = write_to_proc(pid, addr, obj);
+    let _ = jmp(proc, addr);
+    //    debug_rip(pid);
 }
