@@ -1,5 +1,4 @@
-use prpara::core::load;
-use prpara::core::Proc;
+use prpara::{core, types::Pid};
 use seahorse::{App, Context, Flag, FlagType};
 use std::env;
 
@@ -40,10 +39,8 @@ fn run(c: &Context) {
     let Ok(func) = c.string_flag("func") else { usage(); return; };
 
     if pid > 0 {
-        let pid = pid as i32;
-        let proc = Proc::new(pid).unwrap();
-        load(proc);
-        //            jmp(proc);
+        let pid = pid as Pid;
+        let target = core::new(pid);
     } else {
         eprintln!("error: pid must positive number.");
     }
