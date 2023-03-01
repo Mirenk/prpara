@@ -1,4 +1,4 @@
-use crate::types::Pid;
+use crate::{types::Pid, Result};
 
 pub mod loader;
 pub mod parasite;
@@ -8,9 +8,10 @@ pub struct Target {
     loader: loader::Loader,
 }
 
-pub fn new(pid: Pid) -> Target {
-    Target {
-        proc: parasite::new(pid),
-        loader: loader::new(pid),
-    }
+pub fn new(pid: Pid) -> Result<Target> {
+    let obj = Target {
+        proc: parasite::new(pid)?,
+        loader: loader::new(pid)?,
+    };
+    Ok(obj)
 }
