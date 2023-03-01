@@ -10,7 +10,7 @@ use super::{
     Address, Pid, Proc,
 };
 
-use crate::{error::Error, Result};
+use crate::{types::Error, Result};
 
 pub mod symbol;
 

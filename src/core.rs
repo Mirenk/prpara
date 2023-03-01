@@ -5,7 +5,7 @@ use std::ffi::c_void;
 use std::path::Path;
 use std::u64;
 
-use crate::error::Error;
+use crate::types::Error;
 use crate::Result;
 use nix::libc::user_regs_struct;
 use nix::sys::{

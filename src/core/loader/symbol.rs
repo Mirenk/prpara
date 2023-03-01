@@ -6,7 +6,7 @@ use std::path::Path;
 use goblin::Object;
 
 use crate::core::parasite::Address;
-use crate::error::Error;
+use crate::types::Error;
 use crate::Result;
 
 pub type SymHash = HashMap<String, Address>;

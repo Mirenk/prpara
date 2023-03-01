@@ -10,7 +10,7 @@ use nix::sys::{
 };
 
 use super::Proc;
-use crate::error::Error;
+use crate::types::Error;
 use crate::Result;
 
 pub type Address = u64;

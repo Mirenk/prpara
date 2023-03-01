@@ -1,6 +1,6 @@
 pub mod core;
-pub mod error;
+pub mod types;
 
 pub use nix;
 
-pub type Result<T> = std::result::Result<T, error::Error>;
+pub type Result<T> = std::result::Result<T, types::Error>;
