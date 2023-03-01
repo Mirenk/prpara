@@ -40,7 +40,7 @@ fn run(c: &Context) {
     let Ok(func) = c.string_flag("func") else { usage(); return; };
 
     if pid > 0 {
-        let pid = pid as u64;
+        let pid = pid as i32;
         let proc = Proc::new(pid).unwrap();
         load(proc);
         //            jmp(proc);

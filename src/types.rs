@@ -1,5 +1,9 @@
 use thiserror::Error;
 
+pub type Address = u64;
+
+pub type Pid = i32;
+
 #[derive(Error, Debug)]
 pub enum Error {
     #[error("PidError")]

@@ -5,7 +5,7 @@ use std::ffi::c_void;
 use std::path::Path;
 use std::u64;
 
-use crate::types::Error;
+use crate::types::{Address, Error, Pid};
 use crate::Result;
 use nix::libc::user_regs_struct;
 use nix::sys::{
@@ -17,10 +17,6 @@ use nix::sys::{
 use self::loader::symbol::SymHash;
 use self::loader::{get_var_hash, load_shared_object, set_proc_symhash, VarHash};
 use self::parasite::write_to_proc;
-
-pub type Address = u64;
-
-pub type Pid = u64;
 
 pub struct Proc {
     pid: Pid,
