@@ -33,33 +33,47 @@ impl Proc {
             -1,
             0,
         );
-        self.run_syscall(mmap_regs, None)
+        unsafe { self.run_syscall(mmap_regs, None) }
     }
     pub fn write_buf(&mut self, addr: Address, data: Vec<u8>) -> Result<()> {
         Ok(())
     }
 
-    pub fn run_syscall(&self, regs: user_regs_struct, stack: Option<Vec<u8>>) -> Result<u64> {
+    // run syscall at process
+    pub unsafe fn run_syscall(
+        &self,
+        regs: user_regs_struct,
+        stack: Option<Vec<u8>>,
+    ) -> Result<u64> {
+        // backup original regs
         let orig_regs = ptrace::getregs(self.pid).map_err(|_| Error::PtraceGetRegsError)?;
-        let rip = regs.rip as *mut c_void;
-        let syscall_asm = 0xcc050f as *mut c_void; // syscall; int3;
 
+        // get program counter address
+        let rip = regs.rip as *mut c_void;
+
+        // backup original machine code
         let orig_code =
             ptrace::read(self.pid, rip).map_err(|_| Error::PtraceReadError)? as *mut c_void;
 
+        // prepare run syscall
+        let syscall_code = 0xcc050f as *mut c_void; // syscall machine code. (syscall; int3;)
+
+        // syscall run as process
         ptrace::setregs(self.pid, regs).map_err(|_| Error::PtraceSetRegsError)?;
-        unsafe {
-            ptrace::write(self.pid, rip, syscall_asm).map_err(|_| Error::PtraceWriteError)?;
-        }
+        ptrace::write(self.pid, rip, syscall_code).map_err(|_| Error::PtraceWriteError)?; // unsafe
         ptrace::cont(self.pid, None).map_err(|_| Error::PtraceContinueError)?;
 
+        // get result and restore
         if let Ok(WaitStatus::Stopped(_, Signal::SIGTRAP)) = waitpid(self.pid, None) {
+            // get return value from rax
             let regs = ptrace::getregs(self.pid).map_err(|_| Error::PtraceGetRegsError)?;
+            let ret = regs.rax;
+
+            // restore regs and machine code
             ptrace::setregs(self.pid, orig_regs).map_err(|_| Error::PtraceSetRegsError)?;
-            unsafe {
-                ptrace::write(self.pid, rip, orig_code).map_err(|_| Error::PtraceWriteError)?;
-            }
-            Ok(regs.rax)
+            ptrace::write(self.pid, rip, orig_code).map_err(|_| Error::PtraceWriteError)?; // unsafe
+
+            Ok(ret)
         } else {
             Err(Error::WaitPidError)
         }
