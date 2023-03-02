@@ -1,4 +1,5 @@
 use nix::libc::user_regs_struct;
+use nix::sys::ptrace;
 
 use crate::{
     types::{Address, Pid},
@@ -6,7 +7,7 @@ use crate::{
 };
 
 pub struct Proc {
-    pid: Pid,
+    pid: nix::unistd::Pid,
 }
 
 impl Proc {
@@ -22,12 +23,20 @@ impl Proc {
     }
 }
 
+impl Drop for Proc {
+    fn drop(&mut self) {
+        let _ = ptrace::detach(self.pid, None);
+    }
+}
+
+// make proc instance
+pub fn new(pid: Pid) -> Result<Proc> {
+    let pid = nix::unistd::Pid::from_raw(pid);
+    let obj = Proc { pid };
+    Ok(obj)
+}
+
 fn prepare_mmap(orig_regs: &user_regs_struct) -> user_regs_struct {
     let mut regs = orig_regs.clone();
     regs
-}
-
-pub fn new(pid: Pid) -> Result<Proc> {
-    let obj = Proc { pid };
-    Ok(obj)
 }
