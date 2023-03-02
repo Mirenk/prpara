@@ -38,8 +38,12 @@ impl Loader {
 
 // make Loader instance
 pub fn new(pid: Pid) -> Result<Loader> {
+    // prepare process symbols HashMap
+    let mut proc_sym_map = SymMap::new();
+    let _ = prepare_proc_sym_map(pid, &mut proc_sym_map)?;
+
     let obj = Loader {
-        proc_sym_map: SymMap::new(),
+        proc_sym_map,
         parasite_sym_map: SymMap::new(),
     };
     Ok(obj)
