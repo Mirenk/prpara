@@ -1,6 +1,9 @@
-use nix::libc::user_regs_struct;
-use nix::sys::ptrace;
+use nix::sys::ptrace::{self, Options};
+use nix::sys::signal::Signal;
+use nix::sys::wait::waitpid;
+use nix::{libc::user_regs_struct, sys::wait::WaitStatus};
 
+use crate::types::Error;
 use crate::{
     types::{Address, Pid},
     Result,
@@ -32,8 +35,19 @@ impl Drop for Proc {
 // make proc instance
 pub fn new(pid: Pid) -> Result<Proc> {
     let pid = nix::unistd::Pid::from_raw(pid);
-    let obj = Proc { pid };
-    Ok(obj)
+
+    // attach to process
+    ptrace::attach(pid).map_err(|_| Error::PtraceAttachError)?;
+    if let Ok(WaitStatus::Stopped(_, Signal::SIGSTOP)) = waitpid(pid, None) {
+        ptrace::setoptions(pid, Options::PTRACE_O_TRACESYSGOOD)
+            .map_err(|_| Error::PtraceSetOptionError)?;
+
+        let obj = Proc { pid };
+
+        Ok(obj)
+    } else {
+        Err(Error::WaitPidError)
+    }
 }
 
 fn prepare_mmap(orig_regs: &user_regs_struct) -> user_regs_struct {
