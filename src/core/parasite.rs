@@ -20,6 +20,7 @@ pub struct Proc {
 }
 
 impl Proc {
+    // memory allocation at proccess
     pub fn mem_alloc(&mut self, size: usize) -> Result<Address> {
         let orig_regs = ptrace::getregs(self.pid).map_err(|_| Error::PtraceGetRegsError)?;
 
