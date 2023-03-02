@@ -1,10 +1,9 @@
 use std::ffi::{c_int, c_void};
-use std::os::unix::raw::off_t;
 
 use nix::libc::{
-    size_t, SYS_mmap, MAP_ANONYMOUS, MAP_PRIVATE, PROT_EXEC, PROT_READ, PROT_WRITE, PT_NULL,
+    off_t, size_t, SYS_mmap, MAP_ANONYMOUS, MAP_PRIVATE, PROT_EXEC, PROT_READ, PROT_WRITE, PT_NULL,
 };
-use nix::sys::ptrace::{self, Options};
+use nix::sys::ptrace::{self, AddressType, Options};
 use nix::sys::signal::Signal;
 use nix::sys::wait::waitpid;
 use nix::{libc::user_regs_struct, sys::wait::WaitStatus};
@@ -36,7 +35,43 @@ impl Proc {
         );
         unsafe { self.run_syscall(mmap_regs, None) }
     }
+
+    // write to process
     pub fn write_buf(&mut self, addr: Address, data: Vec<u8>) -> Result<()> {
+        let word_size = 8;
+        let align_size = word_size - 1;
+
+        let align_addr = addr & !align_size;
+        let align_head_size = addr - align_addr;
+        let len = data.len() as u64;
+        let len = align_head_size + len;
+        let count: usize = (len + align_size / word_size).try_into().unwrap();
+
+        let align_head_size = align_head_size as usize;
+        let mut write_buf: Vec<u8> = ptrace::read(self.pid, align_addr as AddressType)
+            .unwrap()
+            .to_le_bytes()
+            .to_vec()[0..align_head_size]
+            .to_vec();
+        let align_tail_size = (word_size - (len % 8)) as usize;
+        let mut tail_buf: Vec<u8> =
+            ptrace::read(self.pid, (align_addr + (len / word_size)) as AddressType)
+                .unwrap()
+                .to_le_bytes()
+                .to_vec()[align_tail_size..]
+                .to_vec();
+        write_buf.extend_from_slice(&data);
+        write_buf.append(&mut tail_buf);
+
+        for i in (0..count).step_by(word_size as usize) {
+            let addr = (align_addr + i as u64) as AddressType;
+            let data = &write_buf[i..(i + word_size as usize)];
+            let data = u64::from_le_bytes(data.to_vec().try_into().unwrap()) as *mut c_void;
+
+            unsafe {
+                let _ = ptrace::write(self.pid, addr, data);
+            };
+        }
         Ok(())
     }
 
