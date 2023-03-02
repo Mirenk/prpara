@@ -30,7 +30,7 @@ fn main() {
 }
 
 fn usage() {
-    println!("Usage: cli --pid [pid] --load [filepath] --func [function name]");
+    println!("Usage: cli --pid [pid] --load [filepath] --func [old function symbol name]:[new function symbol name]");
 }
 
 fn run(c: &Context) {
