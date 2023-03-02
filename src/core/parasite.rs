@@ -1,4 +1,9 @@
-use nix::libc::{SYS_mmap, MAP_ANONYMOUS, MAP_PRIVATE, PROT_EXEC, PROT_READ, PROT_WRITE};
+use std::ffi::{c_int, c_void};
+use std::os::unix::raw::off_t;
+
+use nix::libc::{
+    size_t, SYS_mmap, MAP_ANONYMOUS, MAP_PRIVATE, PROT_EXEC, PROT_READ, PROT_WRITE, PT_NULL,
+};
 use nix::sys::ptrace::{self, Options};
 use nix::sys::signal::Signal;
 use nix::sys::wait::waitpid;
@@ -21,11 +26,11 @@ impl Proc {
         // mmap(0, size, PROT_EXEC|PROT_READ|PROT_WRITE, MAP_PRIVATE|MAP_ANONYMOUS, -1, 0);
         let mmap_regs = prepare_mmap(
             &orig_regs,
-            0,
-            size as u64,
-            (PROT_EXEC | PROT_READ | PROT_WRITE) as u64,
-            (MAP_PRIVATE | MAP_ANONYMOUS) as u64,
-            u64::MAX,
+            PT_NULL as *mut c_void,
+            size as size_t,
+            PROT_EXEC | PROT_READ | PROT_WRITE,
+            MAP_PRIVATE | MAP_ANONYMOUS,
+            -1,
             0,
         );
         self.run_syscall(mmap_regs, None)
@@ -35,7 +40,29 @@ impl Proc {
     }
 
     pub fn run_syscall(&self, regs: user_regs_struct, stack: Option<Vec<u8>>) -> Result<u64> {
-        Ok(0)
+        let orig_regs = ptrace::getregs(self.pid).map_err(|_| Error::PtraceGetRegsError)?;
+        let rip = regs.rip as *mut c_void;
+        let syscall_asm = 0xcc050f as *mut c_void; // syscall; int3;
+
+        let orig_code =
+            ptrace::read(self.pid, rip).map_err(|_| Error::PtraceReadError)? as *mut c_void;
+
+        ptrace::setregs(self.pid, regs).map_err(|_| Error::PtraceSetRegsError)?;
+        unsafe {
+            ptrace::write(self.pid, rip, syscall_asm).map_err(|_| Error::PtraceWriteError)?;
+        }
+        ptrace::cont(self.pid, None).map_err(|_| Error::PtraceContinueError)?;
+
+        if let Ok(WaitStatus::Stopped(_, Signal::SIGTRAP)) = waitpid(self.pid, None) {
+            let regs = ptrace::getregs(self.pid).map_err(|_| Error::PtraceGetRegsError)?;
+            ptrace::setregs(self.pid, orig_regs).map_err(|_| Error::PtraceSetRegsError)?;
+            unsafe {
+                ptrace::write(self.pid, rip, orig_code).map_err(|_| Error::PtraceWriteError)?;
+            }
+            Ok(regs.rax)
+        } else {
+            Err(Error::WaitPidError)
+        }
     }
 }
 
@@ -66,24 +93,24 @@ pub fn new(pid: Pid) -> Result<Proc> {
 // example for run_syscall()
 fn prepare_mmap(
     orig_regs: &user_regs_struct,
-    addr: u64,
-    len: u64,
-    prot: u64,
-    flags: u64,
-    fd: u64,
-    offset: u64,
+    addr: *mut c_void,
+    len: size_t,
+    prot: c_int,
+    flags: c_int,
+    fd: c_int,
+    offset: off_t,
 ) -> user_regs_struct {
     let mut regs = orig_regs.clone();
 
     // set args to regs
     regs.rax = SYS_mmap as u64;
-    regs.rdx = addr;
-    regs.rsi = len;
-    regs.rdi = prot;
-    regs.rcx = flags;
-    regs.r10 = flags;
-    regs.r8 = fd;
-    regs.r9 = offset;
+    regs.rdx = addr as u64;
+    regs.rsi = len as u64;
+    regs.rdi = prot as u64;
+    regs.rcx = flags as u64;
+    regs.r10 = flags as u64;
+    regs.r8 = fd as u64;
+    regs.r9 = offset as u64;
 
     regs
 }
