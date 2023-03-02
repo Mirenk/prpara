@@ -53,6 +53,7 @@ impl Proc {
             .to_le_bytes()
             .to_vec()[0..align_head_size]
             .to_vec();
+
         let align_tail_size = (word_size - (len % 8)) as usize;
         let mut tail_buf: Vec<u8> =
             ptrace::read(self.pid, (align_addr + (len / word_size)) as AddressType)
@@ -154,9 +155,9 @@ fn prepare_mmap(
 
     // set args to regs
     regs.rax = SYS_mmap as u64;
-    regs.rdx = addr as u64;
+    regs.rdi = addr as u64;
     regs.rsi = len as u64;
-    regs.rdi = prot as u64;
+    regs.rdx = prot as u64;
     regs.rcx = flags as u64;
     regs.r10 = flags as u64;
     regs.r8 = fd as u64;
