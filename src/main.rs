@@ -1,6 +1,6 @@
 use prpara::{core, types::Pid};
 use seahorse::{App, Context, Flag, FlagType};
-use std::env;
+use std::{env, path::Path};
 
 fn main() {
     let args: Vec<String> = env::args().collect();
@@ -38,9 +38,21 @@ fn run(c: &Context) {
     let Ok(load_path) = c.string_flag("load") else { usage(); return; };
     let Ok(func) = c.string_flag("func") else { usage(); return; };
 
+    // separate function names
+    let str_vec: Vec<&str> = func.split(":").collect();
+    let old_func = str_vec[0].to_string();
+    let new_func = str_vec[1].to_string();
+
+    let object_path = Path::new(&load_path);
+
     if pid > 0 {
         let pid = pid as Pid;
-        let target = core::new(pid);
+        let mut target = core::new(pid).unwrap();
+
+        // parasite
+        target
+            .parasite_func(object_path, old_func, new_func)
+            .unwrap();
     } else {
         eprintln!("error: pid must positive number.");
     }
