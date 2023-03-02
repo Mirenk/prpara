@@ -1,6 +1,7 @@
 use std::{collections::HashMap, fs, path::Path};
 
 use goblin::Object;
+use proc_maps::get_process_maps;
 
 use crate::{
     types::{Address, Error, Pid},
@@ -24,7 +25,20 @@ pub fn new(pid: Pid) -> Result<Loader> {
     Ok(obj)
 }
 
-fn prpare_proc_sym_map(pid: Pid, proc_sym_map: &mut SymMap) -> Result<()> {
+// load symbols in process
+fn prepare_proc_sym_map(pid: Pid, proc_sym_map: &mut SymMap) -> Result<()> {
+    // read process memory map
+    let proc_memmap = get_process_maps(pid).map_err(|_| Error::MapError)?;
+
+    // search object files and load symbols
+    for memmap in proc_memmap {
+        if memmap.is_read() && memmap.offset == 0 {
+            if let Some(path) = memmap.filename() {
+                let _ = load_syms(path, proc_sym_map, memmap.start() as u64);
+            }
+        };
+    }
+
     Ok(())
 }
 
