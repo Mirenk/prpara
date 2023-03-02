@@ -26,6 +26,7 @@ impl Target {
 
         // memory alloc
         let alloc_addr = self.proc.mem_alloc(file_size)?;
+        println!("alloc_addr: {:016x}", alloc_addr);
 
         // get relocate object
         let reloc_object_buf = self.loader.get_reloc_object(object_path, alloc_addr)?;
@@ -36,8 +37,10 @@ impl Target {
         // get jump addr
         let jmp_addr = self
             .loader
-            .get_address_from_proc(new_func_sym_name)
+            .get_address_from_parasite(new_func_sym_name)
             .unwrap();
+
+        println!("new_func_addr: {:016x}", jmp_addr);
 
         // prepare jump buffer
         let mut jmp_buf: Vec<u8> = Vec::new();

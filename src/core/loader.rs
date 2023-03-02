@@ -80,6 +80,11 @@ pub fn load_syms(path: &Path, sym_map: &mut SymMap, offset: Address) -> Result<(
                 elf.strtab.get_at(sym.st_name).unwrap().to_string(),
                 sym.st_value + offset, // absolute address
             );
+            println!(
+                "  add: {} (0x{:016x})",
+                elf.strtab.get_at(sym.st_name).unwrap().to_string(),
+                sym.st_value + offset
+            );
         }
 
         // dynsyms section
@@ -87,6 +92,11 @@ pub fn load_syms(path: &Path, sym_map: &mut SymMap, offset: Address) -> Result<(
             sym_map.insert(
                 elf.dynstrtab.get_at(sym.st_name).unwrap().to_string(),
                 sym.st_value + offset, // absolute address
+            );
+            println!(
+                "  add: {} (0x{:016x})",
+                elf.dynstrtab.get_at(sym.st_name).unwrap().to_string(),
+                sym.st_value + offset
             );
         }
 
