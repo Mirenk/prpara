@@ -26,6 +26,14 @@ impl Loader {
             Some(&mut self.parasite_sym_map),
         )
     }
+
+    pub fn get_address_from_proc(&self, name: String) -> Option<Address> {
+        self.proc_sym_map.get(&name).copied()
+    }
+
+    pub fn get_address_from_parasite(&self, name: String) -> Option<Address> {
+        self.parasite_sym_map.get(&name).copied()
+    }
 }
 
 // make Loader instance
